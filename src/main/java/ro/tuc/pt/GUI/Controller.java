@@ -8,9 +8,6 @@ import java.awt.event.ActionListener;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintWriter;
 
 public class Controller {
@@ -19,12 +16,11 @@ public class Controller {
 
     public Controller(View view) {
         this.view = view;
+        this.view.startListener(new SimulationStartListener());
 
-        this.view.startListener(new StartListener());
-        ;
     }
 
-    class StartListener implements ActionListener {
+    class SimulationStartListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             Integer simulationTime = Integer.parseInt(view.getSimulationTime());
@@ -36,13 +32,12 @@ public class Controller {
             Integer maxProcessingTime = Integer.parseInt(view.getServiceMax());
             SelectionPolicy selectionPolicy=view.getStrategy();
 
-            if (maxArrivalTime < minArrivalTime)
-                JOptionPane.showMessageDialog(view, "Arrival time incorrect!");
-            else if (maxProcessingTime < minProcessingTime)
-                JOptionPane.showMessageDialog(view, "Service time incorrect!");
+            if (maxArrivalTime < minArrivalTime || maxProcessingTime < minProcessingTime)
+                JOptionPane.showMessageDialog(view, "Input incorrect data!");
             else {
-                PrintWriter pw=null;
+
                 SimulationFrame view = new SimulationFrame("Queues simulation");
+                PrintWriter pw=null;
                 SimulationManager simulationManager = new SimulationManager(view, simulationTime, numberOfServers, numberOfClients, minArrivalTime, maxArrivalTime, minProcessingTime, maxProcessingTime, selectionPolicy, pw);
                 Thread T = new Thread(simulationManager);
                 T.start();

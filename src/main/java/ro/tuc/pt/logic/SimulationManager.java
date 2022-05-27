@@ -17,32 +17,30 @@ public class SimulationManager implements Runnable{
     private SimulationFrame view;
     private Scheduler scheduler;
     private ArrayList<Task> tasks;
-    private int ID=0;
+    private int id =0;
 
-    public int timeLimit;
-    public int maxProcessingTime;
-    public int minProcessingTime;
+    public int numberOfClients;
+    public int numberOfServers;
+    public int simulationInterval;
+    public int maxServiceTime;
+    public int minServiceTime;
     public int minArrivalTime;
     public int maxArrivalTime;
-    public int numberOfServers;
-    public int numberOfClients;
+    //private final int id=0;
 
     private int totalServiceTime;
-    private int peekHour;
-    private int maxClients;
+    private int peekTime;
+    private int maxNoOfTasks;
     private PrintWriter pw;
-    private int id=0;
-
-
 
 
     public SimulationManager(){}
 
-    public SimulationManager(SimulationFrame view, Integer timeLimit, Integer numberOfServers, Integer numberOfClients, Integer minArrivalTime, Integer maxArrivalTime, Integer minProcessingTime,Integer maxProcessingTime,SelectionPolicy selectionPolicy,  PrintWriter pw) {
+    public SimulationManager(SimulationFrame view, Integer simulationInterval, Integer numberOfServers, Integer numberOfClients, Integer minArrivalTime, Integer maxArrivalTime, Integer minServiceTime, Integer maxServiceTime, SelectionPolicy selectionPolicy, PrintWriter pw) {
 
-        this.timeLimit = timeLimit;
-        this.maxProcessingTime = maxProcessingTime;
-        this.minProcessingTime = minProcessingTime;
+        this.simulationInterval = simulationInterval;
+        this.maxServiceTime = maxServiceTime;
+        this.minServiceTime = minServiceTime;
         this.numberOfServers = numberOfServers;
         this.numberOfClients = numberOfClients;
         this.minArrivalTime = minArrivalTime;
@@ -50,19 +48,18 @@ public class SimulationManager implements Runnable{
         this.view = view;
         this.scheduler = new Scheduler(this.numberOfServers, this.numberOfClients);
         this.pw = pw;
-        tasks=generateRandomTasks(numberOfClients);
+        tasks=generateNRandomTasks(numberOfClients);
         this.scheduler.changeStrategy(selectionPolicy);
-
 
     }
 
-    public ArrayList<Task> generateRandomTasks(int N){
+    public ArrayList<Task> generateNRandomTasks(int N){
         ArrayList<Task> newTasks = new ArrayList<Task>();
         for (int i = 0; i < N; ++i) {
             int arrivalTime = ThreadLocalRandom.current().nextInt(maxArrivalTime-minArrivalTime+1)+minArrivalTime;
-            int processingTime = ThreadLocalRandom.current().nextInt(maxProcessingTime-minProcessingTime+1)+minProcessingTime;
-            ID=ID+1;
-            Task t = new Task(ID,arrivalTime, processingTime);
+            int processingTime = ThreadLocalRandom.current().nextInt(maxServiceTime - minServiceTime +1)+ minServiceTime;
+            id = id +1;
+            Task t = new Task(id,arrivalTime, processingTime);
             newTasks.add(t);
         }
        newTasks.sort(Comparator.comparing(Task::getArrivalTime));
@@ -89,29 +86,29 @@ public class SimulationManager implements Runnable{
         int currentTime =0;
         int totalWaitingTime = 0;
         int size=tasks.size();
-        AtomicInteger ct = new AtomicInteger(0);
+        AtomicInteger time = new AtomicInteger(0);
         generateFile();
-        while(currentTime< timeLimit){
-            for(Task tmp : tasks) {
-                if (tmp.getArrivalTime()==currentTime) {
+        while(currentTime< simulationInterval){
+            for(Task t : tasks) {
+                if (t.getArrivalTime()==currentTime) {
 
-                    totalWaitingTime = totalWaitingTime - scheduler.dispatchTask(tmp);
-                    totalServiceTime = totalServiceTime+tmp.getServiceTime();
+                    totalWaitingTime = totalWaitingTime + scheduler.dispatchTask(t);
+                    totalServiceTime = totalServiceTime+t.getServiceTime();
                 }
             }
-            ct.set(currentTime);
+            time.set(currentTime);
             if(!tasks.isEmpty())
-                tasks.removeIf(c -> (c.getArrivalTime()==(ct.get())));
-            int currentClients = 0;
+                tasks.removeIf(c -> (c.getArrivalTime()==(time.get())));
+            int noClientsInQueues = 0;
             for(Server queue : scheduler.getServers()) {
-                currentClients+=queue.getClients().length;
+                noClientsInQueues+=queue.getClients().length;
             }
-            if(currentClients > maxClients) {
-                this.peekHour = currentTime;
-                maxClients = currentClients;
+            if(noClientsInQueues > maxNoOfTasks) {
+                this.peekTime = currentTime;
+                maxNoOfTasks = noClientsInQueues;
             }
             updateText(currentTime);
-            updateSimulationView(currentTime);
+            updateSimulationFrame(currentTime);
             currentTime++;
             try {
                 Thread.sleep(1000);
@@ -120,60 +117,63 @@ public class SimulationManager implements Runnable{
             }
         }
         pw.println("\nAverage waiting time: " + (float) totalWaitingTime /size);
-        pw.println("Average service time: " + (float) totalServiceTime/size);
-        pw.println("Peek hour: " + peekHour + " with " + maxClients + " in total.");
+        pw.println("\nAverage service time: " + (float) totalServiceTime/size);
+        pw.println("\nPeek hour: " + peekTime + " with " + maxNoOfTasks + " in total.");
         pw.flush();
-        updateDone();
+        updateWhenDone();
+    }
+
+    public void updateSimulationFrame(int time){
+        StringBuilder event = new StringBuilder();
+
+        event.append("  Time : ").append(time).append("\n   ");
+        for(Task client : tasks) {
+            event.append("(").append(client.getId()).append(") ");
+        }
+        event.append("\n");
+        int i = 1;
+        for(Server queue : scheduler.getServers()) {
+            event.append("\n").append("   Queue ").append(i).append(": ");
+            i++;
+            for(Task client : queue.getTasks()) {
+                event.append("(").append(client.getId()).append(") ");
+            }
+        }
+
+        view.updatedFrame(event.toString());
     }
 
     public void updateText(Integer time) {
-        int i = 1;
+        int i = 0;
         pw.println("\nTime " + time);
         pw.println("Waiting clients: ");
-        for(Task client : tasks)
-            pw.print(client.toString());
+        for(Task task : tasks)
+            pw.print(task.toString());
         pw.print("\n");
 
-        for(Server queue : scheduler.getServers()) {
-            pw.print("Queue: " + i + ": ");
-            if(queue.getTasks().size() == 0) {
-                pw.print("Empty");
-            }
-            else {
-                for (Task client : queue.getTasks()) {
-                    pw.print(client.toString());
+        for(Server server : scheduler.getServers()) {
+            i++;
+            pw.print("Server: " + i + ": ");
+            if(server.getTasks().size() != 0) {
+                for (Task task : server.getTasks()) {
+                    pw.print(task.toString());
                 }
             }
+            else {
+                pw.print("Empty");
+
+            }
             pw.print("\n");
-            i++;
+
         }
         pw.flush();
 
     }
 
-    public void updateSimulationView(int time){
-        String resultedString = new String();
 
-        resultedString = resultedString + "  Time : " + time + "\n   ";
-        for(Task client : tasks) {
-            resultedString = resultedString + "(" + client.getId() + ") ";
-        }
-        resultedString = resultedString + "\n";
-        int i = 1;
-        for(Server queue : scheduler.getServers()) {
-            resultedString = resultedString + "\n"+ "   Queue " + i + ": ";
-            i++;
-            for(Task client : queue.getTasks()) {
-                resultedString = resultedString + "(" + client.getId() + ") ";
-            }
-        }
 
-        view.setUpdated(resultedString);
-    }
-
-    public void updateDone(){
-        view.setUpdated(new String("  Simulation done!"));
-        System.out.println("Done!");
+    public void updateWhenDone(){
+        view.updatedFrame("  Simulation done!");
     }
 
     public static void main (String[] args){

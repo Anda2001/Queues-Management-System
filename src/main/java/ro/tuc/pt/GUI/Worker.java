@@ -8,9 +8,9 @@ public class Worker extends SwingWorker<String, String> {
     private final JTextArea textArea;
     private final String data;
 
-    public Worker(String txt, JTextArea textArea) {
+    public Worker(String data, JTextArea textArea) {
         this.textArea = textArea;
-        this.data = txt;
+        this.data = data;
     }
 
     @Override

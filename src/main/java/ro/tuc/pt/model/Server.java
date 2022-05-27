@@ -1,17 +1,22 @@
 package ro.tuc.pt.model;
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingDeque;
+
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Server implements Runnable {
-    private BlockingQueue<Task> tasks;
+    private final BlockingQueue<Task> tasks;
     private AtomicInteger waitingPeriod;
     public int serverNo;
-    public Thread serverThread = new Thread();
-    private boolean running;
+    public Thread serverThread;
+
+    {
+        new Thread();
+    }
+
+    //private boolean running;
     private Task currentTask;
 
     public Server(int N){
@@ -19,7 +24,7 @@ public class Server implements Runnable {
        waitingPeriod=new AtomicInteger();
        waitingPeriod.set(0);
        serverNo=0;
-       running = false;
+       //running = false;
        serverThread= new Thread(this);
     }
 
@@ -36,25 +41,23 @@ public class Server implements Runnable {
             currentTask  = new Task(0,0,0);
 
             if (!tasks.isEmpty()) {
-                for(int i=0; i<tasks.peek().getServiceTime();i++) {
+                for(int i = 0; i< Objects.requireNonNull(tasks.peek()).getServiceTime(); i++) {
                     try {
                         Thread.sleep(1000);
 
                     } catch (InterruptedException e) {
-                        System.out.print("");
+                        System.out.print("error");
                     }
                     waitingPeriod.set(waitingPeriod.get()-1);
-
                 }
                 try {
                     currentTask = tasks.take();
                 } catch (InterruptedException e) {
-                    System.out.println("Waiting for clients.. (1)");
+                    System.out.println("error");
                 }
 
             }
         }
-
     }
 
     public BlockingQueue<Task> getTasks() {
